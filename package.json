@@ -1,0 +1,33 @@
+{
+  "name": "find-job",
+  "version": "1.0.0",
+  "description": "find job",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joaalex/find-work.git"
+  },
+  "author": "joaalex",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/joaalex/find-work/issues"
+  },
+  "homepage": "https://github.com/joaalex/find-work#readme",
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^7.7.0",
+    "bcrypt": "^5.1.0",
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "joi": "^17.9.2",
+    "uuid": "^9.0.0"
+  }
+}
