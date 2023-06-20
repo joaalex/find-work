@@ -1,0 +1,71 @@
+
+
+const customerStore = [
+         {
+            id:
+            lastname:
+            firstname:
+            email:
+            phone:
+            password:
+            registeredData
+         }
+]
+const otpStore = [
+         {
+            id:
+            otp:
+            email:
+            date
+         }
+]
+
+
+
+Job Application Portal
+
+   - User can signup 
+       - id:
+            lastname:
+            firstname:
+            email:
+            phone:
+            password:
+            status : in-active
+            registeredData
+ 
+   - User receieves Otp
+   - User verifies Otp
+   - User is send a Welcome Email
+   - User can login
+   - User logins with Email/Phone and Password
+   - User can See all available jobs
+   - User Can Filter all Job type
+   - User can apply for a job
+
+   - 
+   - User Track Job Application
+   - Admin get all applications
+   - Admin can update application status [ submitted , processing, accepted, rejected]
+     let users get email at each stage
+   - 
+
+
+[
+   {
+      fullname: "",
+      address: "",
+      email: ""
+      jobId: ""
+      yearsOfExperiece: "",
+      qualifications: "",
+      status: 
+
+   }
+]
+
+SENDGRID_API_KEY=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
+EMAIL_SENDER='info@zulfahgroup.com'
+PORT=8990
+API_KEY=CQLshbSWiAbo-UsOwnYQ
+REMOTE_API_BASEURL=https://remotive.com/api

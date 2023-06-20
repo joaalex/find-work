@@ -10,7 +10,11 @@ const bodyParser = require('body-parser');
 const sendGrid = require('@sendgrid/mail');
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 const bcrypt = require('bcrypt'); 
-const saltRounds = 10
+const saltRounds = 10;
+const axios = require('axios')
+const access = require('./access');
+const applicationStore = require('./applicationStore')
+
 
 sendGrid.setApiKey(SENDGRID_API_KEY);
 
@@ -30,7 +34,7 @@ const sendMessage = (email, subject, message)=>{
 
   sendGrid.send(msg)
   .then(() => {
-    console.log('Email sent.');
+    console.log('Email sent successfully.');
     // res.status(200).json({
     //   status: 'success',
     //   message: 'Email sent successfully'
@@ -38,7 +42,7 @@ const sendMessage = (email, subject, message)=>{
     // return;
   })
   .catch((error) => {
-    console.error('Something went wrong.')
+    console.error('Apologies, we could not send your email at this time. Please try again later.')
     // res.status(404).json({
     //   status: `error : ${error}`,
     //   message: 'Apologies, we could not send your email at this time. Please try again later.'
@@ -49,11 +53,74 @@ const sendMessage = (email, subject, message)=>{
 
 
 app.get('/users', (req, res)=>{
+
+  const {apikey} = req.headers;
+
+  if(!access(apikey)){
+    res.status(401).json({
+      status : false,
+      message: "Unauthorized"
+    });
+    return;
+  };
+
   res.status(200).json({
-    status : 'success',
+    status : true,
     message: 'All Users',
     data
+  });
+
+});
+
+
+app.put('/admin', (req, res)=>{
+
+  // const {apikey} = req.headers;
+
+  // if(!access(apikey)){
+  //   res.status(401).json({
+  //     status : false,
+  //     message: "Unauthorized"
+  //   });
+  //   return;
+  // };
+  
+  const {jobId} = req.body; 
+   
+  const adminSchema = Joi.object({
+    jobId: Joi.required()
+  });
+
+  const {value, error} = adminSchema.validate(req.body);
+
+  if( error !== undefined){
+    res.status(400).json({
+      status : 'error',
+      message: error.message
+    });
+  };
+
+  const userJobInfo = applicationStore.find( user => user.jobId = jobId);
+
+  if(!userJobInfo){
+    res.status(404).json({
+      status : 'error',
+      message: 'User not found',
+    });
+  };
+
+  userJobInfo.status = "Pending";
+
+  sendMessage(userJobInfo.email, 'Application Status', `Dear ${userJobInfo.firstname} ${userJobInfo.lastname} , your job application id of ${jobId} is ${userJobInfo.status}`)
+
+
+  res.status(200).json({
+    status : 'success',
+    message: `Your job application status is ${userJobInfo.status}`,
+    data: userJobInfo
   })
+
+  
 });
 
 
@@ -120,6 +187,7 @@ app.post('/signup', async(req, res)=>{
   data.push(newUser);
 
   const otp = createOTP();
+  console.log(otp)
 
   const otpGenerator = {
     id: uuidv4(),
@@ -130,8 +198,7 @@ app.post('/signup', async(req, res)=>{
 
   otpStore.push(otpGenerator);
   
-  // // samprintstech20@gmail.com
-  sendMessage(email, "OTP Verification" , `Dear ${lastname}, Your otp is  ${otp} and it expires in 5 minutes.` )
+  // sendMessage(email, "OTP Verification" , `Dear ${lastname}, Your otp is  ${otp} and it expires in 5 minutes.` )
 
   res.status(201).json({
     status : " succes",
@@ -160,6 +227,7 @@ app.post('/resend-otp', (req,res)=>{
   };
 
   const otp = createOTP();
+  console.log(otp);
 
   const otpGenerator = {
     id: uuidv4(),
@@ -173,7 +241,7 @@ app.post('/resend-otp', (req,res)=>{
 
   const {lastname } = user;
 
-  sendMessage(email, "OTP Resent", `Dear ${lastname}, Your otp is resent ${otp} and it expires in 5 minutes.` );
+  // sendMessage(email, "OTP Resent", `Dear ${lastname}, Your otp is resent ${otp} and it expires in 5 minutes.` );
 
   res.status(200).json({
     status : 'success',
@@ -207,21 +275,259 @@ app.get('/validate/:email/:otp',(req,res)=>{
   };
 
   const makeActive = data.find(user => user.email === email)
+  const {firstname, lastname} = makeActive
   makeActive.status = 'active';
 
-  sendMessage(email, 'Account Verified', 'Welcome on board , your account has been verified, let have fun.')
+  // sendMessage(email, 'Account Verified', `Dear ${firstname} ${lastname}, Welcome on board , your account has been verified, let have fun.`)
 
   res.status(200).json({
     status: 'success',
-    message: 'OTP Validation Success',
+    message: 'Account Verified Successfully',
     data: makeActive
   })
 
 });
+
+app.post('/login', async (req, res) => {
+
+  const {emailOrPhone, password} = req.body;
+
+  loginSchema = Joi.object({
+    emailOrPhone : Joi.string().required(),
+    password : Joi.string().required()
+  });
+  const {value, error} = loginSchema.validate(req.body);
+
+  if(error !== undefined) {
+    res.status(400).json({
+      status : 'error',
+      message : error.message
+    })
+    return; 
+  };
+
+  const user = data.find(user => user.email === emailOrPhone || user.phone === emailOrPhone);
+
+  if(!user){
+    res.status(404).json({
+      status : 'error',
+      message : 'Input a valid email or password.'
+    });
+  };
+
+  const customerSalt = user.customerSalt;
+  const access = await bcrypt.hash(password, customerSalt);
+
+ 
+
+  if(user.status !== 'active'){
+    res.status(404).json({
+      status : 'error',
+      message : 'Please go and verify your account.'
+    });
+  };
+
+
+  if(user.email === emailOrPhone || user.phone === emailOrPhone && user.password === access){
+    res.status(200).json({
+      status : 'success',
+      message : 'Login Successful.',
+      data: user
+    });
+  };
   
+})
+
+app.get('/jobs', async (req, res)=>{
+
+  const {apikey} = req.headers;
+  
+  if(!access(apikey)){
+    res.status(401).json({
+      status : false,
+      message: 'Unauthorized Access'
+    });
+    return;
+  }
+
+  
+  
+  const length = req.query.length || 3;
+  const company_name = req.query.company_name || '';
+  const category = req.query.category || '';
+  const search = req.query.search || '';
+
+  let jobResponse = await axios({
+    method: 'get',
+    url: `${process.env.BASE_URL}/remote-jobs?limit=${length}&company_name=${company_name}&category=${category}&search=${search}`
+  });
+
+
+  res.status(200).json({
+    status : 'success',
+    massage: 'Available Job',
+    counts : jobResponse.data.jobs.length,
+    jobs: jobResponse.data.jobs
+  });
+});
+
+app.get('/available-jobs', async (req, res) => {
+
+  const findJobs = await axios({
+    method : 'GET', 
+    url : `${process.env.BASE_URL}/remote-jobs`,
+  });
+
+  const availableJobs = findJobs.data.jobs.map(job => job.category)
+  res.status(200).json({
+    status : 'success',
+    message : 'Job category',
+    data : availableJobs
+  });
+});
+
+app.post('/job/applied', async (req,res) =>{
+
+  const {jobId, lastname, firstname, address, email, yearsOfExperience} = req.body;
+
+  appliedJobsSchema = Joi.object({
+    jobId : Joi.required(),
+    firstname : Joi.string().max(3).max(30).required(),
+    lastname : Joi.string().max(3).max(30).required(),
+    address : Joi.string().required(),
+    email: Joi.string().email().required(),
+    yearsOfExperience : Joi.string().required()
+  });
+
+  const {value, error} = appliedJobsSchema.validate(req.body);
+  if( error !== undefined){
+    res.status(404).json({
+      status: 'error',
+      message: error.message
+    });
+    return;
+  };
+
+  const userData = data.find(user => user.email === email)
+
+  if(!userData){
+    res.status(404).json({
+      status: 'error',
+      message: 'Information here is only available for active members, please sign up and try again.'
+    });
+    return;
+  };
+
+  const allJobs = await axios({
+    method: 'get',
+    url: `${process.env.BASE_URL}/remote-jobs`
+    
+  });
+  // console.log(allJobs);
+
+  const job = allJobs.data.jobs.find(joob => joob.id === jobId)
+  console.log(job);
+
+  if(!job || job.id !== jobId){
+    res.status(404).json({
+      status: 'error',
+      message: 'Invalid job id provided.'
+    });
+    return;
+  };
+
+  const applicantData = {
+    applicationId : uuidv4(),
+    jobId,
+    lastname,
+    firstname,
+    address,
+    email,
+    yearsOfExperience,
+    status : 'submitted',
+    date : new Date()
+  }
+  
+  applicationStore.push(applicantData)
+
+  // sendMessage(email, 'Application Status', `Dear ${firstname} ${lastname} , your job application id of ${jobId}  is ${applicantData.status} `)
+
+  res.status(200).json({
+    status: 'success',
+    message: `Your application is successfully and the status is ${applicantData.status} .`,
+    data: applicantData,
+    job 
+  });
+
+});
+
 
 
 app.listen(port, ()=>{
   console.log(`This port is listening on port http://localhost:${port}`)
 });
+
+
+// app.post('/job/applied', async (req,res) =>{
+
+//   const {lastname, firstname, address, email, yearsOfExperience} = req.body;
+
+//   appliedJobsSchema = Joi.object({
+//     firstname : Joi.string().max(3).max(30).required(),
+//     lastname : Joi.string().max(3).max(30).required(),
+//     address : Joi.string().required(),
+//     email: Joi.string().email().required(),
+//     yearsOfExperience : Joi.string().required()
+//   });
+
+//   const {value, error} = appliedJobsSchema.validate(req.body);
+//   if( error !== undefined){
+//     res.status(404).json({
+//       status: 'error',
+//       message: error.message
+//     });
+//   };
+
+//   const userData = data.find(user => user.email === email)
+
+//   if(!userData){
+//     res.status(404).json({
+//       status: 'error',
+//       message: 'Information here is only available for active members, please sign up and try again.'
+//     })
+//   }
+
+//   const applicantData = {
+//     jobId : uuidv4(),
+//     lastname,
+//     firstname,
+//     address,
+//     email,
+//     yearsOfExperience,
+//     status : 'submitted',
+//     date : new Date()
+//   }
+  
+//   applicationStore.push(applicantData)
+
+//   sendMessage(email, 'Submission Progress', `Dear ${firstname} ${lastname} , your application is ${applicantData.status} `)
+
+//   res.status(200).json({
+//     status: 'success',
+//     message: 'Your application has been successfully submitted.',
+//     data: applicantData
+//   });
+
+// })
+
+// {
+//   fullname: "",
+//   address: "",
+//   email: ""
+//   jobId: ""
+//   yearsOfExperiece: "",
+//   qualifications: "",
+//   status: 
+
+// }
 
